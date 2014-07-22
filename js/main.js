@@ -27,18 +27,23 @@ var allFetchedBoundaries = [];
 var activeFetch = false;
 var jsonResponse;
 
-function fetchBoundaryData(url, description) {
+function fetchBoundaryData(url, description, defer) {
+    if (!defer) {
+        var defer = jQuery.Deferred();
+        var promise = defer.promise();
+    }
     var alreadyFetched = false;
     allFetchedBoundaries.forEach(function (boundary) {
         if (boundary.description == description && boundary.url == url) {
             alreadyFetched = true;
             currentBoundary = boundary;
+            defer.resolve();
             if (geoRequestQueue.requests.length > 0) {
                 var nextRequest = geoRequestQueue.popNext();
-                fetchBoundaryData(nextRequest.url, nextRequest.description);
+                fetchBoundaryData(nextRequest.url, nextRequest.description, nextRequest.defer);
             }
         }
-    });
+    }, this);
     if (!alreadyFetched) {
         if (!activeFetch) {
             activeFetch = true;
@@ -49,25 +54,26 @@ function fetchBoundaryData(url, description) {
                 currentBoundary = new Boundary(geoJSONobj, url, description);
                 currentBoundary.boundingBox = currentBoundary.getFeatureBounds();
                 allFetchedBoundaries.push(currentBoundary);
+                defer.resolve();
                 if (geoRequestQueue.requests.length > 0) {
                     var nextRequest = geoRequestQueue.popNext();
-                    fetchBoundaryData(nextRequest.url, nextRequest.description);
+                    fetchBoundaryData(nextRequest.url, nextRequest.description, nextRequest.defer);
                 }
             });
         } else {
-            geoRequestQueue.addRequest({ url: url, description: description });
+            geoRequestQueue.addRequest({ url: url, description: description, defer: defer });
         }
     }
+    return promise;
 }
 
-fetchBoundaryData('geodata/states/hi.geojson', 'State of Hawaii');
-jsonResponse.done(function () {
-    console.log(geoMath.randomPointInsideBounds(currentBoundary.boundingBox));
+var p1 = fetchBoundaryData('geodata/states/hi.geojson', 'State of Hawaii');
+p1.done(function () {
+    console.log('first promise is resolved');
 });
 
-fetchBoundaryData('geodata/states/tn.geojson', 'State of Tennessee');
-
-jsonResponse.done(function () {
-    console.log(geoMath.randomPointInsideBounds(currentBoundary.boundingBox));
+var p2 = fetchBoundaryData('geodata/states/tn.geojson', 'State of TN');
+p2.done(function () {
+    console.log('second promise is resolved');
 });
 //# sourceMappingURL=main.js.map
