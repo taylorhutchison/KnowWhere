@@ -18,35 +18,30 @@ var geoRequestQueue = (function () {
     geoRequestQueue.popNext = function () {
         return geoRequestQueue.requests.splice(0, 1)[0];
     };
-    geoRequestQueue.empty = function () {
-        geoRequestQueue.requests = [];
-    };
     return geoRequestQueue;
 })();
 
 var geoJSONobj;
 var currentBoundary = new Boundary();
-var jsonResponse;
 var allFetchedBoundaries = [];
 var activeFetch = false;
-function getBoundaryData(url, description) {
+var jsonResponse;
+
+function fetchBoundaryData(url, description) {
     var alreadyFetched = false;
     allFetchedBoundaries.forEach(function (boundary) {
         if (boundary.description == description && boundary.url == url) {
             alreadyFetched = true;
             currentBoundary = boundary;
-            console.log('Boundary already downloaded for %s, assigned from saved boundaries', url);
-            console.log(currentBoundary.boundingBox);
             if (geoRequestQueue.requests.length > 0) {
                 var nextRequest = geoRequestQueue.popNext();
-                getBoundaryData(nextRequest.url, nextRequest.description);
+                fetchBoundaryData(nextRequest.url, nextRequest.description);
             }
         }
     });
     if (!alreadyFetched) {
         if (!activeFetch) {
             activeFetch = true;
-            console.log(url);
             jsonResponse = $.getJSON(url);
             jsonResponse.done(function () {
                 activeFetch = false;
@@ -54,10 +49,9 @@ function getBoundaryData(url, description) {
                 currentBoundary = new Boundary(geoJSONobj, url, description);
                 currentBoundary.boundingBox = currentBoundary.getFeatureBounds();
                 allFetchedBoundaries.push(currentBoundary);
-                console.log(currentBoundary.boundingBox);
                 if (geoRequestQueue.requests.length > 0) {
                     var nextRequest = geoRequestQueue.popNext();
-                    getBoundaryData(nextRequest.url, nextRequest.description);
+                    fetchBoundaryData(nextRequest.url, nextRequest.description);
                 }
             });
         } else {
@@ -66,7 +60,14 @@ function getBoundaryData(url, description) {
     }
 }
 
-getBoundaryData('geodata/states/tn.geojson', 'State of Tennessee');
-getBoundaryData('geodata/states/hi.geojson', 'State of Hawaii');
-getBoundaryData('geodata/states/tn.geojson', 'State of Tennessee');
+fetchBoundaryData('geodata/states/hi.geojson', 'State of Hawaii');
+jsonResponse.done(function () {
+    console.log(geoMath.randomPointInsideBounds(currentBoundary.boundingBox));
+});
+
+fetchBoundaryData('geodata/states/tn.geojson', 'State of Tennessee');
+
+jsonResponse.done(function () {
+    console.log(geoMath.randomPointInsideBounds(currentBoundary.boundingBox));
+});
 //# sourceMappingURL=main.js.map
